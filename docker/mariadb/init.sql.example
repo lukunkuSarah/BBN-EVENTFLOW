@@ -1,0 +1,6 @@
+-- Example init script for MariaDB (optional)
+CREATE DATABASE IF NOT EXISTS eventflow CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS 'eventflow'@'%' IDENTIFIED BY 'eventflow_pw';
+GRANT ALL PRIVILEGES ON eventflow.* TO 'eventflow'@'%';
+FLUSH PRIVILEGES;
+
