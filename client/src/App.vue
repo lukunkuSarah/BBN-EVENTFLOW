@@ -54,16 +54,30 @@ function logout() {
           </router-link>
         </template>
         <template v-else>
+          <router-link to="/events" class="nav-btn nav-btn--ghost">
+            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            <span>Événements</span>
+          </router-link>
+          <router-link v-if="auth.isAdmin" to="/dashboard" class="nav-btn nav-btn--solid">
+            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+              <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+            </svg>
+            <span>Dashboard</span>
+          </router-link>
           <div class="user-chip">
-            <!-- icon: user -->
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
               <circle cx="12" cy="7" r="4"/>
             </svg>
             <span>{{ auth.user?.name || auth.user?.email || 'Utilisateur' }}</span>
+            <span v-if="auth.isAdmin" class="admin-badge">Admin</span>
           </div>
           <button class="nav-btn nav-btn--ghost" @click="logout">
-            <!-- icon: log-out -->
             <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
               <polyline points="16 17 21 12 16 7"/>
@@ -182,6 +196,16 @@ function logout() {
   font-size: .88rem;
   font-weight: 600;
   border: 1px solid var(--teal-subtle);
+}
+.admin-badge {
+  background: var(--teal-d);
+  color: white;
+  font-size: .65rem;
+  font-weight: 800;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 100px;
 }
 
 /* ── Main ───────────────────────────────────────────────── */

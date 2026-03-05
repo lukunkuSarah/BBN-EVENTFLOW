@@ -61,16 +61,52 @@ function authUserId(req) {
   return Number.isFinite(id) ? id : null;
 }
 
+// ── Middleware: admin only ────────────────────────────────────────────────────
+async function requireAdmin(req, res, next) {
+  const userId = authUserId(req);
+  if (!userId) return res.status(401).json({ message: "unauthorized" });
+  try {
+    const { rows } = await pgPool.query("SELECT is_admin FROM users WHERE id=$1", [userId]);
+    if (!rows[0]?.is_admin) return res.status(403).json({ message: "forbidden — admin only" });
+    req.userId = userId;
+    next();
+  } catch (e) {
+    res.status(500).json({ message: e?.message || "auth check failed" });
+  }
+}
+
 // ── GET /events ───────────────────────────────────────────────────────────────
 router.get("/", async (_req, res) => {
   res.json(await listEvents());
 });
 
-// ── POST /events ──────────────────────────────────────────────────────────────
-router.post("/", async (req, res) => {
+// ── GET /events/my-registrations ─────────────────────────────────────────────
+router.get("/my-registrations", async (req, res) => {
   const userId = authUserId(req);
-  if (!userId) return res.status(401).json({ message: "unauthorized" });
+  if (!userId) return res.json([]);
+  const { rows } = await pgPool.query(
+    "SELECT event_id FROM registrations WHERE user_id=$1",
+    [userId]
+  );
+  res.json(rows.map((r) => r.event_id));
+});
 
+// ── GET /events/registrations/all  (admin) ───────────────────────────────────
+router.get("/registrations/all", requireAdmin, async (_req, res) => {
+  const { rows } = await pgPool.query(
+    `SELECT e.id AS event_id, e.title AS event_title,
+            u.id AS user_id, u.name, u.email,
+            r.created_at AS registered_at
+       FROM registrations r
+       JOIN events e ON e.id = r.event_id
+       JOIN users  u ON u.id = r.user_id
+      ORDER BY r.created_at DESC`
+  );
+  res.json(rows);
+});
+
+// ── POST /events ──────────────────────────────────────────────────────────────
+router.post("/", requireAdmin, async (req, res) => {
   const { title, description, date, capacity } = req.body || {};
   if (!title || !date) return res.status(400).json({ message: "title and date required" });
 
@@ -78,17 +114,16 @@ router.post("/", async (req, res) => {
     `INSERT INTO events (title, description, date, capacity, created_by)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING id`,
-    [title, description || "", new Date(date).toISOString(), Number(capacity ?? 0), userId]
+    [title, description || "", new Date(date).toISOString(), Number(capacity ?? 0), req.userId]
   );
 
   const ev = await getEventById(rows[0].id);
 
-  // ── Journal MariaDB ──
   await logActivity({
     action:     "event_created",
     eventId:    ev.id,
     eventTitle: ev.title,
-    userId,
+    userId:     req.userId,
     details:    { capacity: ev.capacity, date: ev.date },
   });
 
@@ -97,10 +132,7 @@ router.post("/", async (req, res) => {
 });
 
 // ── PATCH /events/:id ─────────────────────────────────────────────────────────
-router.patch("/:id", async (req, res) => {
-  const userId = authUserId(req);
-  if (!userId) return res.status(401).json({ message: "unauthorized" });
-
+router.patch("/:id", requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
   const { title, description, date, capacity } = req.body || {};
 
@@ -116,12 +148,11 @@ router.patch("/:id", async (req, res) => {
   await pgPool.query(`UPDATE events SET ${set.join(", ")} WHERE id=$${n}`, vals);
   const ev = await getEventById(id);
 
-  // ── Journal MariaDB ──
   await logActivity({
     action:     "event_updated",
     eventId:    id,
     eventTitle: ev?.title,
-    userId,
+    userId:     req.userId,
     details:    { updatedFields: Object.keys(req.body || {}) },
   });
 
@@ -130,26 +161,36 @@ router.patch("/:id", async (req, res) => {
 });
 
 // ── DELETE /events/:id ────────────────────────────────────────────────────────
-router.delete("/:id", async (req, res) => {
-  const userId = authUserId(req);
-  if (!userId) return res.status(401).json({ message: "unauthorized" });
-
+router.delete("/:id", requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
   const ev = await getEventById(id);
 
   await pgPool.query("DELETE FROM events WHERE id=$1", [id]);
 
-  // ── Journal MariaDB ──
   await logActivity({
     action:     "event_deleted",
     eventId:    id,
     eventTitle: ev?.title,
-    userId,
+    userId:     req.userId,
     details:    { capacity: ev?.capacity },
   });
 
   await broadcast();
   res.status(204).end();
+});
+
+// ── GET /events/:id/registrations  (admin) ───────────────────────────────────
+router.get("/:id/registrations", requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  const { rows } = await pgPool.query(
+    `SELECT u.id, u.name, u.email, r.created_at AS registered_at
+       FROM registrations r
+       JOIN users u ON u.id = r.user_id
+      WHERE r.event_id = $1
+      ORDER BY r.created_at ASC`,
+    [id]
+  );
+  res.json(rows);
 });
 
 // ── POST /events/:id/register ─────────────────────────────────────────────────
@@ -170,7 +211,6 @@ router.post("/:id/register", async (req, res) => {
 
   const updated = await getEventById(id);
 
-  // ── Journal MariaDB ──
   await logActivity({
     action:     "user_registered",
     eventId:    id,
@@ -198,7 +238,6 @@ router.post("/:id/cancel", async (req, res) => {
 
   const updated = await getEventById(id);
 
-  // ── Journal MariaDB ──
   await logActivity({
     action:     "user_cancelled",
     eventId:    id,
@@ -212,7 +251,6 @@ router.post("/:id/cancel", async (req, res) => {
 });
 
 // ── GET /events/logs ──────────────────────────────────────────────────────────
-// Retourne les dernières entrées du journal d'activité (MariaDB)
 router.get("/logs", async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 50, 200);
@@ -224,7 +262,6 @@ router.get("/logs", async (req, res) => {
 });
 
 // ── GET /events/stats ─────────────────────────────────────────────────────────
-// Retourne les agrégats de statistiques depuis MariaDB
 router.get("/stats", async (_req, res) => {
   try {
     const stats = await getEventStats();

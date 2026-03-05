@@ -7,16 +7,19 @@ export const useEventsStore = defineStore('events', {
     loading: false,
     error: null,
     realtime: { source: null, intervalId: null },
+    myRegistrationIds: [],   // event IDs the current user is registered to
+    allRegistrations: [],    // admin: all registrations across all events
+    registrationsLoading: false,
   }),
   getters: {
     byId: (s) => (id) => s.items.find((e) => e.id === id),
+    isRegistered: (s) => (eventId) => s.myRegistrationIds.includes(eventId),
   },
   actions: {
     async fetchAll() {
       this.loading = true
       this.error = null
       try {
-        // Expect backend: GET /events -> [{...}]
         const { data } = await api.get('/events')
         this.items = Array.isArray(data) ? data : []
       } catch (e) {
@@ -25,41 +28,56 @@ export const useEventsStore = defineStore('events', {
         this.loading = false
       }
     },
+    async fetchMyRegistrations() {
+      try {
+        const { data } = await api.get('/events/my-registrations')
+        this.myRegistrationIds = Array.isArray(data) ? data : []
+      } catch {
+        this.myRegistrationIds = []
+      }
+    },
+    async fetchAllRegistrations() {
+      this.registrationsLoading = true
+      try {
+        const { data } = await api.get('/events/registrations/all')
+        this.allRegistrations = Array.isArray(data) ? data : []
+      } catch {
+        this.allRegistrations = []
+      } finally {
+        this.registrationsLoading = false
+      }
+    },
     async create(event) {
-      // Expect backend: POST /events -> created event
       const { data } = await api.post('/events', event)
       this.items.unshift(data)
       return data
     },
     async update(id, patch) {
-      // Expect backend: PATCH /events/:id -> updated event
       const { data } = await api.patch(`/events/${id}`, patch)
       const idx = this.items.findIndex((e) => e.id === id)
       if (idx !== -1) this.items[idx] = data
       return data
     },
     async remove(id) {
-      // Expect backend: DELETE /events/:id
       await api.delete(`/events/${id}`)
       this.items = this.items.filter((e) => e.id !== id)
     },
     async register(id) {
-      // Expect backend: POST /events/:id/register -> updated event
       const { data } = await api.post(`/events/${id}/register`)
       const idx = this.items.findIndex((e) => e.id === id)
       if (idx !== -1) this.items[idx] = data
+      if (!this.myRegistrationIds.includes(id)) this.myRegistrationIds.push(id)
       return data
     },
     async cancelRegistration(id) {
-      // Expect backend: POST /events/:id/cancel -> updated event
       const { data } = await api.post(`/events/${id}/cancel`)
       const idx = this.items.findIndex((e) => e.id === id)
       if (idx !== -1) this.items[idx] = data
+      this.myRegistrationIds = this.myRegistrationIds.filter((eid) => eid !== id)
       return data
     },
     startRealtime() {
       const useMock = (import.meta.env.VITE_USE_MOCK === '1')
-      // In mock mode, skip SSE and poll
       this.stopRealtime()
       if (!useMock) {
         try {
@@ -70,18 +88,14 @@ export const useEventsStore = defineStore('events', {
               if (Array.isArray(payload)) this.items = payload
             } catch {}
           }
-          source.onerror = () => {
-            source.close()
-          }
+          source.onerror = () => { source.close() }
           this.realtime.source = source
         } catch {
           // ignore
         }
       }
       if (useMock || !this.realtime.source) {
-        const intervalId = setInterval(() => {
-          this.fetchAll()
-        }, 5000)
+        const intervalId = setInterval(() => { this.fetchAll() }, 5000)
         this.realtime.intervalId = intervalId
       }
     },

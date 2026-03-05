@@ -1,8 +1,15 @@
 <script setup>
+import { computed } from 'vue'
+import { useEventsStore } from '../stores/events.js'
+
 const props = defineProps({
-  event: { type: Object, required: true },
+  event:   { type: Object,  required: true },
+  isAdmin: { type: Boolean, default: false },
 })
 const emit = defineEmits(['edit', 'delete', 'register', 'cancel'])
+
+const eventsStore = useEventsStore()
+const registered  = computed(() => eventsStore.isRegistered(props.event.id))
 
 function remaining(e) {
   return Math.max(0, (e.capacity || 0) - (e.registeredCount || 0))
@@ -28,13 +35,13 @@ function fmtDate(d) {
 <template>
   <article class="card">
 
-    <!-- Accent strip de couleur selon statut -->
+    <!-- Accent strip -->
     <div class="card-accent" :class="status(event).cls"></div>
 
-    <!-- Top row: statut + actions icônes -->
+    <!-- Top row: statut + actions admin -->
     <div class="card-top">
       <span class="badge" :class="status(event).cls">{{ status(event).label }}</span>
-      <div class="icon-actions">
+      <div v-if="isAdmin" class="icon-actions">
         <button class="icon-btn icon-btn--edit" @click="emit('edit', event)" title="Modifier">
           <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -89,33 +96,46 @@ function fmtDate(d) {
       </div>
     </div>
 
-    <!-- Séparateur -->
     <div class="card-divider"></div>
 
-    <!-- Actions principales -->
+    <!-- Actions -->
     <div class="card-actions">
-      <button
-        class="btn-register"
-        :class="{ 'btn-register--full': remaining(event) === 0 }"
-        :disabled="remaining(event) === 0"
-        @click="emit('register', event)"
-      >
-        <svg v-if="remaining(event) > 0" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-             fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-          <circle cx="8.5" cy="7" r="4"/>
-          <line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>
-        </svg>
-        {{ remaining(event) === 0 ? 'Complet' : "S'inscrire" }}
-      </button>
-      <button class="btn-cancel" @click="emit('cancel', event)">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
-        </svg>
-        Annuler
-      </button>
+      <!-- Déjà inscrit -->
+      <template v-if="registered">
+        <div class="btn-registered">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Inscrit
+        </div>
+        <button class="btn-cancel" @click="emit('cancel', event)">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+          </svg>
+          Annuler
+        </button>
+      </template>
+
+      <!-- Pas encore inscrit -->
+      <template v-else>
+        <button
+          class="btn-register"
+          :class="{ 'btn-register--full': remaining(event) === 0 }"
+          :disabled="remaining(event) === 0"
+          @click="emit('register', event)"
+        >
+          <svg v-if="remaining(event) > 0" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="8.5" cy="7" r="4"/>
+            <line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>
+          </svg>
+          {{ remaining(event) === 0 ? 'Complet' : "S'inscrire" }}
+        </button>
+      </template>
     </div>
 
   </article>
@@ -274,10 +294,23 @@ function fmtDate(d) {
 }
 
 /* ── Actions ──────────────────────────────────────────────── */
-.card-actions {
+.card-actions { display: flex; gap: 10px; align-items: center; }
+
+.btn-registered {
+  flex: 1;
   display: flex;
-  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 16px;
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1.5px solid #bbf7d0;
+  border-radius: 10px;
+  font-size: .85rem;
+  font-weight: 700;
 }
+
 .btn-register {
   flex: 1;
   display: flex;
@@ -306,6 +339,7 @@ function fmtDate(d) {
   box-shadow: none;
   cursor: not-allowed;
 }
+
 .btn-cancel {
   display: flex;
   align-items: center;

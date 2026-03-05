@@ -10,6 +10,7 @@ export const useAuthStore = defineStore('auth', {
   }),
   getters: {
     isAuthenticated: (s) => !!s.token,
+    isAdmin: (s) => s.user?.is_admin === true,
   },
   actions: {
     hydrate() {
@@ -27,7 +28,6 @@ export const useAuthStore = defineStore('auth', {
       this.loading = true
       this.error = null
       try {
-        // Expect backend: POST /auth/login -> { user, token }
         const { data } = await api.post('/auth/login', credentials)
         this.user = data.user
         this.token = data.token
@@ -44,7 +44,6 @@ export const useAuthStore = defineStore('auth', {
       this.loading = true
       this.error = null
       try {
-        // Expect backend: POST /auth/register -> { user, token }
         const { data } = await api.post('/auth/register', payload)
         this.user = data.user
         this.token = data.token
@@ -64,4 +63,3 @@ export const useAuthStore = defineStore('auth', {
     },
   },
 })
-
