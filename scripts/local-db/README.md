@@ -9,6 +9,19 @@ installés directement sur Windows, avec les mêmes identifiants que `docker-com
 | PostgreSQL | `eventflow_db`   | `eventflow_user` | `eventflow_secret_2024` | 5432 |
 | MariaDB    | `eventflow_logs` | `eventflow_user` | `eventflow_secret_2024` | 3306 |
 
+## 0. Prérequis
+
+- **Git for Windows** : https://git-scm.com/downloads/win (ou `winget install --id Git.Git -e --source winget`).
+  Nécessaire pour récupérer la branche, et pour que Claude Code puisse exécuter des commandes Bash.
+- **Node.js LTS** : https://nodejs.org (ou `winget install OpenJS.NodeJS.LTS`).
+  Nécessaire pour lancer l'API et le client (`npm`).
+
+Après chaque installation, fermer puis rouvrir PowerShell pour que les nouvelles commandes soient reconnues.
+Si le chemin du projet contient des espaces, l'entourer de guillemets : `cd "C:\Users\...\Mon Dossier\BBN-EVENTFLOW"`.
+
+Sans Git, la branche peut aussi être téléchargée en ZIP :
+https://github.com/lukunkuSarah/BBN-EVENTFLOW/archive/refs/heads/claude/busy-meitner-8bvqv0.zip
+
 ## 1. Installer PostgreSQL 16
 
 1. Télécharger l'installateur Windows (EDB), version 16 : https://www.postgresql.org/download/windows/
