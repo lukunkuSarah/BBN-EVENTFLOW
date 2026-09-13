@@ -22,6 +22,12 @@ function loginDemo() {
   form.password = 'demo1234'
   submit()
 }
+
+function loginDemoMember() {
+  form.email = 'membre@eventflow.local'
+  form.password = 'membre1234'
+  submit()
+}
 </script>
 
 <template>
@@ -71,7 +77,10 @@ function loginDemo() {
           </button>
 
           <button type="button" class="btn-demo" @click="loginDemo">
-            ⚡ Connexion démo rapide
+            ⚡ Connexion démo admin
+          </button>
+          <button type="button" class="btn-demo" @click="loginDemoMember">
+            👤 Connexion démo membre
           </button>
 
           <p v-if="auth.error" class="error-msg">{{ auth.error }}</p>
