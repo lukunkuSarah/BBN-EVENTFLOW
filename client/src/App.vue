@@ -11,7 +11,7 @@ const router = useRouter()
 const route = useRoute()
 
 onMounted(() => {
-  auth.hydrate()
+  // La session est restaurée dans main.js avant le routeur
   if (auth.isAuthenticated) {
     events.fetchAll()
     events.startRealtime()

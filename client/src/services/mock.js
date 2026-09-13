@@ -82,8 +82,11 @@ function authUser(config) {
   if (!m) return null
   const token = m[1]
   if (!token.startsWith('user:')) return null
-  const id = Number(token.slice(5))
-  return users.find((u) => u.id === id) || null
+  const ref = token.slice(5)
+  const id = Number(ref)
+  if (Number.isFinite(id)) return users.find((u) => u.id === id) || null
+  // Ancien format de jeton (user:<email>) : sessions créées avant la refonte du mock
+  return users.find((u) => u.email === ref) || null
 }
 
 function registeredCount(eventId) {

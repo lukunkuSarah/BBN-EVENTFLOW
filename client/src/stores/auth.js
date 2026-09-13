@@ -14,11 +14,29 @@ export const useAuthStore = defineStore('auth', {
   },
   actions: {
     hydrate() {
-      const raw = localStorage.getItem('auth')
-      if (raw) {
+      let raw = null
+      try { raw = localStorage.getItem('auth') } catch {}
+      if (!raw) return
+      try {
         const parsed = JSON.parse(raw)
         this.user = parsed.user
         this.token = parsed.token
+      } catch {
+        this.logout()
+        return
+      }
+      // Vérifie que la session est encore valide côté API et rafraîchit le rôle
+      if (this.token) {
+        api.get('/auth/me')
+          .then(({ data }) => {
+            if (data && data.id) {
+              this.user = { ...this.user, ...data }
+              this.persist()
+            }
+          })
+          .catch((e) => {
+            if (e?.response?.status === 401) this.logout()
+          })
       }
     },
     persist() {
